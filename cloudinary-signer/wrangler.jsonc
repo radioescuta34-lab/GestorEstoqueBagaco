@@ -1,0 +1,10 @@
+{
+  "name": "gestao-estoque-cloudinary-signer",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-18",
+  "vars": {
+    "FIREBASE_PROJECT_ID": "gestaoestoquebagaco",
+    "ADMIN_EMAIL": "endersonerval@gmail.com",
+    "CLOUDINARY_CLOUD_NAME": "kk42uft2"
+  }
+}

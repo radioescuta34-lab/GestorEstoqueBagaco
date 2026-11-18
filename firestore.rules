@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdministrator() {
+      return request.auth != null
+        && request.auth.token.email == 'endersonerval@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /levantamentos/{levantamentoId} {
+      allow read: if true;
+      allow create, update: if isAdministrator();
+      allow delete: if false;
+    }
+  }
+}

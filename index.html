@@ -8,6 +8,10 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
   <!-- Chart.js para gráficos interativos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
@@ -599,7 +603,8 @@
   <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
 
-    <div id="page-dashboard" class="app-page space-y-6">
+    <div id="data-status" class="bg-white rounded-xl border border-ardosia-200 p-6 text-sm text-ardosia-600" role="status">Carregando levantamentos…</div>
+    <div id="page-dashboard" class="app-page space-y-6" hidden>
     <!-- SEÇÃO 2: CONSOLIDADO DA SAFRA (GERADO VS. CONSUMIDO) -->
     <section class="space-y-4 print-break-inside">
       <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
@@ -715,7 +720,7 @@
 
     <div id="page-levantamentos" class="app-page space-y-6" hidden>
     <!-- SEÇÃO 1: RELATÓRIO DO VOO SELECIONADO -->
-    <section class="bg-white rounded-xl sm:rounded-2xl border border-ardosia-200 shadow-sm overflow-hidden print-shadow-none">
+    <section id="selected-report-section" class="bg-white rounded-xl sm:rounded-2xl border border-ardosia-200 shadow-sm overflow-hidden print-shadow-none">
       
       <!-- Cabeçalho do Relatório -->
       <div class="bg-gradient-to-r from-ardosia-50 to-white px-4 sm:px-6 py-4 border-b border-ardosia-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -850,9 +855,7 @@
             <i data-lucide="search" class="w-4 h-4 text-ardosia-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
             <input type="text" id="history-search" oninput="renderHistoryTable()" placeholder="Filtrar data ou camada..." class="w-full sm:w-56 pl-9 pr-3 py-2 text-sm border border-ardosia-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cana-500 focus:border-cana-500" />
           </div>
-          <button onclick="resetDemoData()" title="Restaurar dados iniciais de demonstração" aria-label="Restaurar dados iniciais de demonstração" class="min-h-11 min-w-11 p-2 text-ardosia-500 hover:text-ardosia-800 hover:bg-ardosia-100 rounded-lg border border-ardosia-200 transition cursor-pointer">
-            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          </button>
+
         </div>
       </div>
 
@@ -1087,7 +1090,7 @@
 
         <div>
           <label for="admin-user-input" class="mb-1 block text-xs font-bold uppercase tracking-wider text-ardosia-700">E-mail corporativo</label>
-          <input type="email" id="admin-user-input" value="geoprocessamento@pitangueiras.com.br" autocomplete="username" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
+          <input type="email" id="admin-user-input" value="endersonerval@gmail.com" autocomplete="username" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
         </div>
 
         <div>
@@ -1100,15 +1103,8 @@
           </div>
         </div>
 
-        <!-- Credencial de demonstração: preserva o preenchimento automático sem parecer alerta. -->
-        <div class="flex items-center justify-between rounded-xl border border-ardosia-200 bg-ardosia-50 p-3 text-xs text-ardosia-700">
-          <div class="flex items-center gap-2">
-            <i data-lucide="flask-conical" class="w-4 h-4 shrink-0 text-ardosia-500"></i>
-            <span>Ambiente de demonstração <span class="text-ardosia-400">·</span> <strong class="font-mono text-ardosia-800 select-all">admin123</strong></span>
-          </div>
-          <button type="button" onclick="fillDemoPassword()" class="font-semibold text-cana-700 underline decoration-cana-300 underline-offset-2 hover:text-cana-800 focus:outline-none focus:ring-2 focus:ring-cana-500 rounded cursor-pointer">
-            Preencher senha
-          </button>
+        <div class="flex flex-wrap gap-4">
+          <button type="button" onclick="sendAdminPasswordReset()" class="text-sm font-semibold text-cana-700 hover:underline">Definir ou recuperar senha</button>
         </div>
 
         <div class="pt-2 flex items-center justify-end gap-2">
@@ -1512,9 +1508,21 @@
     let uploadedImageDataUrl = null;
     let currentParsedMetadata = {};
     let isAdminAuthenticated = false;
+    let dataReady = false;
+    let dataError = false;
+    let firebaseAuth = null;
+    let firestoreDb = null;
+    let pendingImageFile = null;
+    let saveInProgress = false;
+    const CLOUDINARY_SIGNER_URL = "https://gestao-estoque-cloudinary-signer.gestao-estoque-cloudinary-signer.workers.dev";
+    const ADMIN_EMAIL = "endersonerval@gmail.com";
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyCWiHxzLg1hRIcbiQAjZvWf4P6DWHf0ohA",
+      authDomain: "gestaoestoquebagaco.firebaseapp.com",
+      projectId: "gestaoestoquebagaco",
+      appId: "1:259303073776:web:a9d61c699da8b0e4b75f35"
+    };
 
-    const ADMIN_AUTH_KEY = "usina_pitangueiras_admin_session";
-    const DEMO_ADMIN_PASS = "admin123";
     const THEME_STORAGE_KEY = "usina_pitangueiras_theme";
 
     // =========================================================================
@@ -1570,8 +1578,10 @@
     // CONTROLE DE ACESSO (MODO PÚBLICO VS. ADMINISTRADOR)
     // =========================================================================
     function initAuthState() {
-      isAdminAuthenticated = sessionStorage.getItem(ADMIN_AUTH_KEY) === "true";
-      updateAuthUI();
+      firebaseAuth.onAuthStateChanged(user => {
+        isAdminAuthenticated = Boolean(user && user.email === ADMIN_EMAIL && user.emailVerified);
+        updateAuthUI();
+      });
     }
 
     function toggleAdminAuth() {
@@ -1584,12 +1594,12 @@
       }
     }
 
-    function logoutAdmin() {
-      isAdminAuthenticated = false;
-      sessionStorage.removeItem(ADMIN_AUTH_KEY);
-      closeAdminMenu();
-      updateAuthUI();
-      showToast("Sessão encerrada. Você voltou ao Modo Público (somente leitura).");
+    async function logoutAdmin() {
+      try {
+        await firebaseAuth.signOut();
+        closeAdminMenu();
+        showToast("Sessão encerrada. Você voltou ao modo público.");
+      } catch (_) { showToast("Não foi possível encerrar a sessão.", "warning"); }
     }
 
     function toggleAdminMenu() {
@@ -1634,25 +1644,31 @@
       lucide.createIcons();
     }
 
-    function fillDemoPassword() {
-      const passwordInput = document.getElementById("admin-password-input");
-      passwordInput.value = DEMO_ADMIN_PASS;
-      passwordInput.focus();
+    async function sendAdminPasswordReset() {
+      const email = document.getElementById("admin-user-input").value.trim();
+      if (email !== ADMIN_EMAIL) return showToast("Informe o e-mail administrativo autorizado.", "warning");
+      try {
+        await firebaseAuth.sendPasswordResetEmail(email);
+        showToast("Se a conta estiver cadastrada, um e-mail de redefinição será enviado.");
+      } catch (_) { showToast("Não foi possível solicitar a redefinição de senha.", "warning"); }
     }
 
-    function handleAdminLogin(event) {
+    async function handleAdminLogin(event) {
       event.preventDefault();
-      const pass = document.getElementById("admin-password-input").value.trim();
-      if (pass === DEMO_ADMIN_PASS) {
-        isAdminAuthenticated = true;
-        sessionStorage.setItem(ADMIN_AUTH_KEY, "true");
+      const email = document.getElementById("admin-user-input").value.trim();
+      const password = document.getElementById("admin-password-input").value;
+      if (email !== ADMIN_EMAIL) return showToast("Este e-mail não possui acesso administrativo.", "warning");
+      try {
+        const credential = await firebaseAuth.signInWithEmailAndPassword(email, password);
+        if (!credential.user.emailVerified) {
+          await credential.user.sendEmailVerification();
+          await firebaseAuth.signOut();
+          return showToast("Enviamos um link de confirmação. Verifique seu e-mail antes de entrar novamente.", "warning");
+        }
         document.getElementById("admin-password-input").value = "";
         closeLoginModal();
-        updateAuthUI();
-        showToast("Login administrativo confirmado! Upload de logs liberado.");
-      } else {
-        showToast("Senha incorreta. Utilize a senha de demonstração: admin123", "warning");
-      }
+        showToast("Acesso administrativo confirmado.");
+      } catch (_) { showToast("Não foi possível entrar. Confira seus dados e tente novamente.", "warning"); }
     }
 
     function updateAuthUI() {
@@ -1783,28 +1799,24 @@
     }
 
     function loadFlightsFromStorage() {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            flights = parsed;
-            return;
-          }
+      firestoreDb.collection("levantamentos").onSnapshot(snapshot => {
+        flights = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        sortFlightsChronologically();
+        dataReady = true;
+        dataError = false;
+        const sharedId = new URLSearchParams(window.location.search).get("voo");
+        if (!selectedFlightId && sharedId && flights.some(f => f.id === sharedId)) {
+          selectedFlightId = sharedId;
+          showPage("levantamentos");
         }
-      } catch (e) {
-        console.warn("Erro ao ler localStorage:", e);
-      }
-      flights = JSON.parse(JSON.stringify(DEFAULT_FLIGHTS));
-      saveFlightsToStorage();
-    }
-
-    function saveFlightsToStorage() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(flights));
-      } catch (e) {
-        showToast("Aviso: Limite de armazenamento local atingido para imagens grandes.", "warning");
-      }
+        renderAll();
+      }, error => {
+        console.warn("Erro ao carregar levantamentos:", error);
+        dataReady = true;
+        dataError = true;
+        flights = [];
+        renderAll();
+      });
     }
 
     function sortFlightsChronologically() {
@@ -1842,14 +1854,14 @@
     function showPage(page) {
       if (page !== "dashboard" && page !== "levantamentos") return;
       currentPage = page;
-      document.getElementById("page-dashboard").hidden = page !== "dashboard";
-      document.getElementById("page-levantamentos").hidden = page !== "levantamentos";
+      document.getElementById("page-dashboard").hidden = page !== "dashboard" || !dataReady || !flights.length;
+      document.getElementById("page-levantamentos").hidden = page !== "levantamentos" || !dataReady || dataError;
       ["dashboard", "levantamentos"].forEach(name => {
         const button = document.getElementById(`nav-${name}`);
         if (name === page) button.setAttribute("aria-current", "page");
         else button.removeAttribute("aria-current");
       });
-      if (page === "dashboard" && flights.length) renderCharts();
+      if (dataReady) renderAll();
     }
 
     function populateFlightSelector() {
@@ -1896,10 +1908,27 @@
     // =========================================================================
     function renderAll() {
       sortFlightsChronologically();
-      if (!selectedFlightId || !flights.find(f => f.id === selectedFlightId)) {
-        selectedFlightId = flights[flights.length - 1].id;
+      const hasFlights = flights.length > 0;
+      const status = document.getElementById("data-status");
+      status.hidden = !dataError && (hasFlights || currentPage === "levantamentos");
+      status.textContent = dataError ? "Não foi possível carregar os levantamentos. Verifique a conexão e recarregue a página." : "Nenhum levantamento cadastrado. Entre como administrador para adicionar o primeiro.";
+      document.getElementById("selected-report-section").hidden = !hasFlights;
+      document.getElementById("page-dashboard").hidden = currentPage !== "dashboard" || !hasFlights || dataError;
+      document.getElementById("page-levantamentos").hidden = currentPage !== "levantamentos" || dataError;
+      const selector = document.getElementById("flight-selector");
+      selector.disabled = !hasFlights;
+      document.getElementById("btn-prev-flight").disabled = !hasFlights;
+      document.getElementById("btn-next-flight").disabled = !hasFlights;
+      if (!hasFlights) {
+        selector.innerHTML = '<option value="">Nenhum levantamento</option>';
+        document.getElementById("flight-counter-badge").textContent = "0 de 0";
+        document.getElementById("latest-flight-badge").classList.add("hidden");
+        document.getElementById("btn-latest").classList.add("hidden");
+        renderHistoryTable();
+        lucide.createIcons();
+        return;
       }
-
+      if (!selectedFlightId || !flights.find(f => f.id === selectedFlightId)) selectedFlightId = flights[flights.length - 1].id;
       populateFlightSelector();
       renderSelectedFlightReport();
       renderConsolidatedKPIs();
@@ -2280,6 +2309,7 @@
       document.getElementById("parsed-volume").value = "";
       document.getElementById("polygon-file-input").value = "";
       uploadedImageDataUrl = null;
+      pendingImageFile = null;
       currentParsedMetadata = {};
       const preview = document.getElementById("upload-preview-img");
       preview.removeAttribute("src");
@@ -2393,6 +2423,7 @@ Polygon Id: 0
     }
 
     function processImageFile(file) {
+      pendingImageFile = file;
       const reader = new FileReader();
       reader.onload = function(e) {
         uploadedImageDataUrl = e.target.result;
@@ -2408,13 +2439,15 @@ Polygon Id: 0
     function removeUploadedImage(event) {
       event.stopPropagation();
       uploadedImageDataUrl = null;
+      pendingImageFile = null;
       document.getElementById("polygon-file-input").value = "";
       document.getElementById("upload-preview-img").classList.add("hidden");
       document.getElementById("upload-placeholder").classList.remove("hidden");
       document.getElementById("btn-remove-image").classList.add("hidden");
     }
 
-    function saveNewFlight() {
+    async function saveNewFlight() {
+      if (!isAdminAuthenticated || !firebaseAuth.currentUser || saveInProgress) return;
       const dateInput = document.getElementById("parsed-date").value.trim();
       const timeInput = document.getElementById("parsed-time").value.trim() || "16:30:00";
       const volumeInput = parseFloat(document.getElementById("parsed-volume").value);
@@ -2441,25 +2474,39 @@ Polygon Id: 0
         unit: currentParsedMetadata.unit || "meters",
         polygonId: currentParsedMetadata.polygonId || "0",
         volume: volumeInput,
-        imageUrl: uploadedImageDataUrl || generateDefaultOrthomosaicSVG(layerName)
+        imageUrl: ""
       };
 
-      // Se já existir levantamento na mesma data, atualiza; senão adiciona
-      const existingIdx = flights.findIndex(f => f.id === sortableId);
-      if (existingIdx >= 0) {
-        flights[existingIdx] = newRecord;
-      } else {
-        flights.push(newRecord);
-      }
-
-      saveFlightsToStorage();
-      selectedFlightId = sortableId;
-      resetUploadForm();
-      dismissUploadModal();
-
-      renderAll();
-      showPage("levantamentos");
-      showToast(`Relatório de ${formattedBRDate} (${formatNumberBR(volumeInput)} m³) publicado!`);
+      saveInProgress = true;
+      try {
+        if (pendingImageFile) {
+          if (!CLOUDINARY_SIGNER_URL) throw new Error("O serviço de imagens ainda não foi configurado.");
+          const token = await firebaseAuth.currentUser.getIdToken();
+          const signed = await fetch(CLOUDINARY_SIGNER_URL, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+          if (!signed.ok) throw new Error("Não foi possível autorizar o envio da imagem.");
+          const params = await signed.json();
+          const form = new FormData();
+          form.append("file", pendingImageFile);
+          form.append("api_key", params.apiKey);
+          form.append("timestamp", String(params.timestamp));
+          form.append("folder", params.folder);
+          form.append("signature", params.signature);
+          const uploaded = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(params.cloudName)}/image/upload`, { method: "POST", body: form });
+          if (!uploaded.ok) throw new Error("Não foi possível enviar a imagem ao Cloudinary.");
+          const image = await uploaded.json();
+          newRecord.imageUrl = image.secure_url;
+        }
+        await firestoreDb.collection("levantamentos").doc(sortableId).set(newRecord);
+        selectedFlightId = sortableId;
+        pendingImageFile = null;
+        resetUploadForm();
+        dismissUploadModal();
+        showPage("levantamentos");
+        renderAll();
+        showToast(`Relatório de ${formattedBRDate} publicado!`);
+      } catch (error) {
+        showToast(error.message || "Não foi possível salvar o levantamento.", "warning");
+      } finally { saveInProgress = false; }
     }
 
     // =========================================================================
@@ -2491,14 +2538,6 @@ Polygon Id: 0
       } else {
         showToast(`Link ${reportLabel} pronto para compartilhamento!`);
       }
-    }
-
-    function resetDemoData() {
-      flights = JSON.parse(JSON.stringify(DEFAULT_FLIGHTS));
-      saveFlightsToStorage();
-      selectedFlightId = flights[flights.length - 1].id;
-      renderAll();
-      showToast("Histórico padrão da Safra 2026 restaurado.");
     }
 
     // Configurar Drag & Drop na área de imagem
@@ -2563,21 +2602,19 @@ Polygon Id: 0
       });
 
       initTheme();
-      initAuthState();
-      loadFlightsFromStorage();
-      
-      // Verificar se há parâmetro ?voo=AAAA-MM-DD na URL compartilhada
-      const params = new URLSearchParams(window.location.search);
-      const vooParam = params.get("voo");
-      if (vooParam && flights.find(f => f.id === vooParam)) {
-        selectedFlightId = vooParam;
-      } else {
-        selectedFlightId = flights[flights.length - 1].id;
-      }
-
       setupDragAndDrop();
-      if (vooParam && flights.find(f => f.id === vooParam)) showPage("levantamentos");
-      renderAll();
+      try {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        firebaseAuth = firebase.auth();
+        firestoreDb = firebase.firestore();
+        initAuthState();
+        loadFlightsFromStorage();
+      } catch (error) {
+        console.error("Erro ao iniciar Firebase:", error);
+        dataReady = true;
+        dataError = true;
+        renderAll();
+      }
     });
   </script>
 </body>
