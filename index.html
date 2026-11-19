@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gestão de Estoque de Bagaço - Usina Pitangueiras</title>
+  <link rel="icon" type="image/png" href="assets/logo-drone-sistema.png" />
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -1070,8 +1071,8 @@
     <div class="bg-white rounded-t-2xl sm:rounded-2xl border border-ardosia-200 shadow-2xl max-w-md w-full overflow-hidden">
       <div class="px-4 sm:px-6 py-4 bg-ardosia-900 text-white flex items-center justify-between">
         <div class="flex items-center gap-2.5">
-          <div class="p-2 bg-amber-500/20 border border-amber-400/30 rounded-lg text-amber-300">
-            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          <div class="h-12 w-12 shrink-0 overflow-hidden">
+            <img src="assets/logo-drone-sistema.png" alt="" class="h-full w-full object-contain" />
           </div>
           <div>
             <h3 class="text-base font-bold">Acesso administrativo</h3>
@@ -1121,11 +1122,11 @@
       <form id="admin-register-form" onsubmit="handleAdminRegistration(event)" class="hidden p-4 sm:p-6 space-y-4">
         <div>
           <h3 class="text-lg font-bold text-ardosia-900">Inscreva-se</h3>
-          <p class="mt-1 text-sm leading-relaxed text-ardosia-600">Para o primeiro acesso, enviaremos um link para você criar sua senha. O cadastro administrativo é restrito ao e-mail autorizado.</p>
+          <p class="mt-1 text-sm leading-relaxed text-ardosia-600">Informe o e-mail administrativo autorizado. Ele será seu login para entrar no sistema e receberá um link para criar sua senha.</p>
         </div>
         <div>
-          <label for="admin-register-email" class="mb-1 block text-xs font-bold uppercase tracking-wider text-ardosia-700">E-mail</label>
-          <input type="email" id="admin-register-email" value="endriussouza@usinapitangueiras.com.br" autocomplete="email" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
+          <label for="admin-register-email" class="mb-1 block text-xs font-bold uppercase tracking-wider text-ardosia-700">E-mail de login</label>
+          <input type="email" id="admin-register-email" autocomplete="off" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
           <button type="button" onclick="showAdminRegistration(false)" class="min-h-11 text-sm font-semibold text-ardosia-600 hover:text-ardosia-900 focus:outline-none focus:ring-2 focus:ring-cana-500 rounded-lg">Voltar ao login</button>
@@ -1642,6 +1643,7 @@
     function showAdminRegistration(show, focus = true) {
       document.getElementById("admin-login-form").classList.toggle("hidden", show);
       document.getElementById("admin-register-form").classList.toggle("hidden", !show);
+      if (show) document.getElementById("admin-register-email").value = "";
       if (focus) document.getElementById(show ? "admin-register-email" : "admin-user-input").focus();
     }
 
