@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from './index.js';
 
-const env = { FIREBASE_PROJECT_ID: 'gestaoestoquebagaco', ADMIN_EMAIL: 'endersonerval@gmail.com' };
+const env = { FIREBASE_PROJECT_ID: 'gestaoestoquebagaco', ADMIN_EMAIL: 'endriussouza@usinapitangueiras.com.br' };
 
 test('preflight permite apenas os métodos e cabeçalhos esperados', async () => {
   const response = await worker.fetch(new Request('https://example.test', { method: 'OPTIONS' }), env);

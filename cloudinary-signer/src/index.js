@@ -25,7 +25,8 @@ export default {
         audience: env.FIREBASE_PROJECT_ID,
         algorithms: ['RS256']
       });
-      if (payload.email !== env.ADMIN_EMAIL || payload.email_verified !== true || !payload.sub) {
+      const adminEmails = env.ADMIN_EMAIL.split(',').map(email => email.trim());
+      if (!adminEmails.includes(payload.email) || payload.email_verified !== true || !payload.sub) {
         return reply({ error: 'Acesso não autorizado.' }, 403);
       }
     } catch {

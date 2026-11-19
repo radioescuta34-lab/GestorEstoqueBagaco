@@ -1083,14 +1083,14 @@
         </button>
       </div>
 
-      <form onsubmit="handleAdminLogin(event)" class="p-4 sm:p-6 space-y-4">
+      <form id="admin-login-form" onsubmit="handleAdminLogin(event)" class="p-4 sm:p-6 space-y-4">
         <p class="text-sm leading-relaxed text-ardosia-600">
           Entre para publicar um novo levantamento.
         </p>
 
         <div>
           <label for="admin-user-input" class="mb-1 block text-xs font-bold uppercase tracking-wider text-ardosia-700">E-mail corporativo</label>
-          <input type="email" id="admin-user-input" value="endersonerval@gmail.com" autocomplete="username" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
+          <input type="email" id="admin-user-input" value="endriussouza@usinapitangueiras.com.br" autocomplete="username" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
         </div>
 
         <div>
@@ -1105,6 +1105,7 @@
 
         <div class="flex flex-wrap gap-4">
           <button type="button" onclick="sendAdminPasswordReset()" class="text-sm font-semibold text-cana-700 hover:underline">Definir ou recuperar senha</button>
+          <button type="button" onclick="showAdminRegistration(true)" class="text-sm font-semibold text-cana-700 hover:underline">Inscreva-se</button>
         </div>
 
         <div class="pt-2 flex items-center justify-end gap-2">
@@ -1115,6 +1116,20 @@
             <i data-lucide="log-in" class="w-4 h-4"></i>
             <span>Entrar</span>
           </button>
+        </div>
+      </form>
+      <form id="admin-register-form" onsubmit="handleAdminRegistration(event)" class="hidden p-4 sm:p-6 space-y-4">
+        <div>
+          <h3 class="text-lg font-bold text-ardosia-900">Inscreva-se</h3>
+          <p class="mt-1 text-sm leading-relaxed text-ardosia-600">Para o primeiro acesso, enviaremos um link para você criar sua senha. O cadastro administrativo é restrito ao e-mail autorizado.</p>
+        </div>
+        <div>
+          <label for="admin-register-email" class="mb-1 block text-xs font-bold uppercase tracking-wider text-ardosia-700">E-mail</label>
+          <input type="email" id="admin-register-email" value="endriussouza@usinapitangueiras.com.br" autocomplete="email" class="w-full rounded-lg border border-ardosia-300 bg-ardosia-50 px-3.5 py-2 text-sm text-ardosia-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cana-500" required />
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <button type="button" onclick="showAdminRegistration(false)" class="min-h-11 text-sm font-semibold text-ardosia-600 hover:text-ardosia-900 focus:outline-none focus:ring-2 focus:ring-cana-500 rounded-lg">Voltar ao login</button>
+          <button type="submit" class="min-h-11 rounded-lg bg-cana-600 px-5 py-2 text-sm font-bold text-white hover:bg-cana-700 focus:outline-none focus:ring-2 focus:ring-cana-500 focus:ring-offset-2">Enviar link para criar senha</button>
         </div>
       </form>
     </div>
@@ -1515,7 +1530,7 @@
     let pendingImageFile = null;
     let saveInProgress = false;
     const CLOUDINARY_SIGNER_URL = "https://gestao-estoque-cloudinary-signer.gestao-estoque-cloudinary-signer.workers.dev";
-    const ADMIN_EMAIL = "endersonerval@gmail.com";
+    const ADMIN_EMAILS = ["endriussouza@usinapitangueiras.com.br"];
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyCWiHxzLg1hRIcbiQAjZvWf4P6DWHf0ohA",
       authDomain: "gestaoestoquebagaco.firebaseapp.com",
@@ -1579,7 +1594,7 @@
     // =========================================================================
     function initAuthState() {
       firebaseAuth.onAuthStateChanged(user => {
-        isAdminAuthenticated = Boolean(user && user.email === ADMIN_EMAIL && user.emailVerified);
+        isAdminAuthenticated = Boolean(user && ADMIN_EMAILS.includes(user.email) && user.emailVerified);
         updateAuthUI();
       });
     }
@@ -1620,7 +1635,28 @@
 
     function closeLoginModal() {
       document.getElementById("login-modal").classList.add("hidden");
+      showAdminRegistration(false, false);
       resetPasswordVisibility();
+    }
+
+    function showAdminRegistration(show, focus = true) {
+      document.getElementById("admin-login-form").classList.toggle("hidden", show);
+      document.getElementById("admin-register-form").classList.toggle("hidden", !show);
+      if (focus) document.getElementById(show ? "admin-register-email" : "admin-user-input").focus();
+    }
+
+    async function handleAdminRegistration(event) {
+      event.preventDefault();
+      const email = document.getElementById("admin-register-email").value.trim().toLowerCase();
+      if (!ADMIN_EMAILS.includes(email)) return showToast("Este e-mail não está autorizado para cadastro administrativo.", "warning");
+      const button = event.currentTarget.querySelector('button[type="submit"]');
+      button.disabled = true;
+      try {
+        await firebaseAuth.sendPasswordResetEmail(email);
+        showToast("Se o e-mail estiver cadastrado, enviaremos um link para criar sua senha.");
+        showAdminRegistration(false);
+      } catch (_) { showToast("Não foi possível enviar o link. Tente novamente.", "warning"); }
+      finally { button.disabled = false; }
     }
 
     function togglePasswordVisibility() {
@@ -1645,8 +1681,8 @@
     }
 
     async function sendAdminPasswordReset() {
-      const email = document.getElementById("admin-user-input").value.trim();
-      if (email !== ADMIN_EMAIL) return showToast("Informe o e-mail administrativo autorizado.", "warning");
+      const email = document.getElementById("admin-user-input").value.trim().toLowerCase();
+      if (!ADMIN_EMAILS.includes(email)) return showToast("Informe o e-mail administrativo autorizado.", "warning");
       try {
         await firebaseAuth.sendPasswordResetEmail(email);
         showToast("Se a conta estiver cadastrada, um e-mail de redefinição será enviado.");
@@ -1655,9 +1691,9 @@
 
     async function handleAdminLogin(event) {
       event.preventDefault();
-      const email = document.getElementById("admin-user-input").value.trim();
+      const email = document.getElementById("admin-user-input").value.trim().toLowerCase();
       const password = document.getElementById("admin-password-input").value;
-      if (email !== ADMIN_EMAIL) return showToast("Este e-mail não possui acesso administrativo.", "warning");
+      if (!ADMIN_EMAILS.includes(email)) return showToast("Este e-mail não possui acesso administrativo.", "warning");
       try {
         const credential = await firebaseAuth.signInWithEmailAndPassword(email, password);
         if (!credential.user.emailVerified) {
